@@ -1,53 +1,21 @@
-import fs from "fs";
-import path from "path";
-import type { ServerResponse } from "http";
+import { Redis } from "@upstash/redis";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "counter.json");
-const INITIAL_COUNT = 4;
+const KEY = "appointmentcounter:count";
+const INITIAL_COUNT = 6;
 
-const subscribers = new Set<ServerResponse>();
+const redis = Redis.fromEnv();
 
-function readCount(): number {
-  try {
-    const raw = fs.readFileSync(DATA_FILE, "utf-8");
-    const parsed = JSON.parse(raw);
-    if (typeof parsed?.count === "number") return parsed.count;
-  } catch {
-    // fallthrough: initialize
-  }
-  writeCount(INITIAL_COUNT);
-  return INITIAL_COUNT;
+async function ensureSeeded(): Promise<void> {
+  await redis.set(KEY, INITIAL_COUNT, { nx: true });
 }
 
-function writeCount(count: number): void {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify({ count }));
+export async function getCount(): Promise<number> {
+  await ensureSeeded();
+  const value = await redis.get<number>(KEY);
+  return typeof value === "number" ? value : INITIAL_COUNT;
 }
 
-export function getCount(): number {
-  return readCount();
-}
-
-export function increment(): number {
-  const next = readCount() + 1;
-  writeCount(next);
-  broadcast(next);
-  return next;
-}
-
-function broadcast(count: number): void {
-  const payload = `data: ${JSON.stringify({ count })}\n\n`;
-  for (const res of subscribers) {
-    try {
-      res.write(payload);
-    } catch {
-      subscribers.delete(res);
-    }
-  }
-}
-
-export function subscribe(res: ServerResponse): () => void {
-  subscribers.add(res);
-  return () => subscribers.delete(res);
+export async function increment(): Promise<number> {
+  await ensureSeeded();
+  return await redis.incr(KEY);
 }

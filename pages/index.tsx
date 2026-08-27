@@ -1,19 +1,30 @@
 import { useEffect, useState } from "react";
 
+const POLL_INTERVAL_MS = 2000;
+
 export default function Home() {
   const [count, setCount] = useState<number | null>(null);
 
   useEffect(() => {
-    const es = new EventSource("/api/counter-stream");
-    es.onmessage = (event) => {
+    let cancelled = false;
+
+    async function fetchCount() {
       try {
-        const data = JSON.parse(event.data);
-        if (typeof data.count === "number") setCount(data.count);
+        const res = await fetch("/api/counter", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && typeof data.count === "number") setCount(data.count);
       } catch {
-        // ignore malformed events
+        // swallow — retry on next tick
       }
+    }
+
+    fetchCount();
+    const id = setInterval(fetchCount, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
     };
-    return () => es.close();
   }, []);
 
   return (
