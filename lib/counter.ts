@@ -3,7 +3,16 @@ import { Redis } from "@upstash/redis";
 const KEY = "appointmentcounter:count";
 const INITIAL_COUNT = 6;
 
-const redis = Redis.fromEnv();
+const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+
+if (!url || !token) {
+  throw new Error(
+    "Missing Upstash Redis credentials. Set UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN or KV_REST_API_URL/KV_REST_API_TOKEN."
+  );
+}
+
+const redis = new Redis({ url, token });
 
 let seedPromise: Promise<unknown> | null = null;
 function ensureSeeded(): Promise<unknown> {
