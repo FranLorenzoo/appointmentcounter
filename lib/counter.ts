@@ -5,8 +5,15 @@ const INITIAL_COUNT = 6;
 
 const redis = Redis.fromEnv();
 
-async function ensureSeeded(): Promise<void> {
-  await redis.set(KEY, INITIAL_COUNT, { nx: true });
+let seedPromise: Promise<unknown> | null = null;
+function ensureSeeded(): Promise<unknown> {
+  if (!seedPromise) {
+    seedPromise = redis.set(KEY, INITIAL_COUNT, { nx: true }).catch((err) => {
+      seedPromise = null;
+      throw err;
+    });
+  }
+  return seedPromise;
 }
 
 export async function getCount(): Promise<number> {

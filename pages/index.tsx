@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 30000;
 
 export default function Home() {
   const [count, setCount] = useState<number | null>(null);
